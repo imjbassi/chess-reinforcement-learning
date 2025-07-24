@@ -1,5 +1,6 @@
 # Chess-RL: AI Chess Engine Using Reinforcement Learning
-![Chess-RL Demo](chess_rl.gif)
+<div align="center"> <img src="chess_rl.gif" alt="Chess-RL Demo" /> </div>
+
 
 Chess-RL is an AI-driven chess engine that learns and improves through reinforcement learning, inspired by AlphaZero's groundbreaking methodology. Combining the speed and efficiency of C++ with the flexibility of Python and PyTorch, Chess-RL autonomously develops chess strategies through continuous self-play and neural network training.
 
@@ -44,6 +45,10 @@ A reinforcement learning setup that enables continuous improvement:
 ### 4. Visualization and Interface
 
 Interactive tools for understanding and observing AI decision-making:
+
+The image below shows debug logging from the C++ engine, demonstrating how illegal king moves are identified and filtered out during move generation. It shows the engine rejecting moves that would place the king in check, ensuring only legal moves are passed to the neural network.
+
+<div align="center"> <img src="Terminal.png" alt="Chess-RL Terminal Debug" width="420"/> </div>
 
 * `pygame_gui.py`: Visual interface built with PyGame displaying the chessboard, piece moves, and highlighting the neural network’s move probabilities in real-time.
 
