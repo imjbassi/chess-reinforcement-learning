@@ -1,0 +1,10 @@
+^C:\USERS\JAIVE.DESKTOP-3TNM9JL\DESKTOP\CHESS-RL\CMAKEFILES\574262F08C4D1B30CFFF438DECB91346\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/jaive.DESKTOP-3TNM9JL/Desktop/chess-rl -BC:/Users/jaive.DESKTOP-3TNM9JL/Desktop/chess-rl --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/jaive.DESKTOP-3TNM9JL/Desktop/chess-rl/chessengine.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

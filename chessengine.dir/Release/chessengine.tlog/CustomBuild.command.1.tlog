@@ -1,0 +1,10 @@
+^C:\USERS\JAIVE.DESKTOP-3TNM9JL\DESKTOP\CHESS-RL\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/jaive.DESKTOP-3TNM9JL/Desktop/chess-rl -BC:/Users/jaive.DESKTOP-3TNM9JL/Desktop/chess-rl --check-stamp-file C:/Users/jaive.DESKTOP-3TNM9JL/Desktop/chess-rl/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

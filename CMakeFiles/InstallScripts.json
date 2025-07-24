@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/jaive.DESKTOP-3TNM9JL/Desktop/chess-rl/cmake_install.cmake",
+		"C:/Users/jaive.DESKTOP-3TNM9JL/Desktop/chess-rl/extern/pybind11/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
