@@ -1,5 +1,5 @@
 # Chess-RL: AI Chess Engine Using Reinforcement Learning
-![Chess-RL Demo](assets/chess_rl.gif)
+![Chess-RL Demo](chess_rl.gif)
 
 Chess-RL is an AI-driven chess engine that learns and improves through reinforcement learning, inspired by AlphaZero's groundbreaking methodology. Combining the speed and efficiency of C++ with the flexibility of Python and PyTorch, Chess-RL autonomously develops chess strategies through continuous self-play and neural network training.
 
