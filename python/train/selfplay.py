@@ -1,3 +1,4 @@
+```python
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -325,3 +326,4 @@ if __name__ == "__main__":
     # Run self-play with temperature control
     # Higher temperature = more exploration
     selfplay(net, n_games=10, max_plies=200, temperature=1.2)
+```

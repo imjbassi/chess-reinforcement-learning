@@ -1,3 +1,4 @@
+```python
 import torch
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
@@ -133,3 +134,4 @@ def train(batch_size=32, epochs=500, lr=1e-3, resume=True, kl_coeff=1e-4, data_p
 
 if __name__ == "__main__":
     train()
+```
