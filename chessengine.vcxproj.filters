@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\jaive.DESKTOP-3TNM9JL\Desktop\chess-rl\chessengine\board.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\jaive.DESKTOP-3TNM9JL\Desktop\chess-rl\chessengine\movegen.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\jaive.DESKTOP-3TNM9JL\Desktop\chess-rl\chessengine\utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\jaive.DESKTOP-3TNM9JL\Desktop\chess-rl\chessengine\bindings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\jaive.DESKTOP-3TNM9JL\Desktop\chess-rl\chessengine\attack_tables.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\jaive.DESKTOP-3TNM9JL\Desktop\chess-rl\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{CAF36526-6F0C-3F5B-8B02-BCDEA87B63AD}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
