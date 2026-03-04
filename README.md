@@ -64,14 +64,14 @@ The image below shows debug logging from the C++ engine, demonstrating how illeg
 The board state is encoded into 18 distinct channels:
 
 * **12 channels**: Piece positions (6 types × 2 colors)
-* **1 channel**: Indicates side to move
+* **1 channel**: Side to move
 * **4 channels**: Castling rights
 * **1 channel**: En passant opportunities
 
 ### Training Methodology
 
 * **Self-Play**: AI plays games against itself, generating comprehensive training datasets.
-* **Training**: Neural network parameters updated using results of these self-play games.
+* **Training**: Neural network parameters updated using results of self-play games.
 * **Evaluation**: New models tested against previous versions to measure performance improvements.
 * **Iteration**: Continuous process iteratively enhancing the AI's playing strength.
 
