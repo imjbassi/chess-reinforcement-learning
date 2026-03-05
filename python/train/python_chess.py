@@ -1,3 +1,4 @@
+```python
 """Simple Python chess implementation for fallback when C++ engine fails"""
 import numpy as np
 import torch
@@ -50,6 +51,11 @@ class SimpleChessBoard:
     """A simple chess board implementation with basic move generation and validation."""
 
     def __init__(self):
+        self.board = None
+        self.white_to_move = True
+        self.moves_played = 0
+        self.castling_rights = [True, True, True, True]
+        self.en_passant_square = None
         self.reset()
 
     def reset(self):
@@ -101,8 +107,8 @@ class SimpleChessBoard:
                     break
                 attacker = board[r, f]
                 if attacker != 0:
-                    if (by_white and (attacker == ROOK or attacker == QUEEN)) or \
-                       (not by_white and (attacker == -ROOK or attacker == -QUEEN)):
+                    if (by_white and attacker in (ROOK, QUEEN)) or \
+                       (not by_white and attacker in (-ROOK, -QUEEN)):
                         return True
                     break
 
@@ -116,8 +122,8 @@ class SimpleChessBoard:
                     break
                 attacker = board[r, f]
                 if attacker != 0:
-                    if (by_white and (attacker == BISHOP or attacker == QUEEN)) or \
-                       (not by_white and (attacker == -BISHOP or attacker == -QUEEN)):
+                    if (by_white and attacker in (BISHOP, QUEEN)) or \
+                       (not by_white and attacker in (-BISHOP, -QUEEN)):
                         return True
                     break
 
@@ -132,15 +138,16 @@ class SimpleChessBoard:
         if 0 <= new_rank < 8 and self.board[new_rank, file] == 0:
             # Check for promotion
             if (is_white and new_rank == 7) or (not is_white and new_rank == 0):
-                moves.append(move_to_uci(sq, coords_to_sq(new_rank, file)) + 'q')
+                for promo in ['q', 'r', 'b', 'n']:
+                    moves.append(move_to_uci(sq, coords_to_sq(new_rank, file)) + promo)
             else:
                 moves.append(move_to_uci(sq, coords_to_sq(new_rank, file)))
 
-            # Double push from starting rank
-            if (is_white and rank == 1) or (not is_white and rank == 6):
-                new_rank2 = rank + 2 * direction
-                if 0 <= new_rank2 < 8 and self.board[new_rank2, file] == 0:
-                    moves.append(move_to_uci(sq, coords_to_sq(new_rank2, file)))
+                # Double push from starting rank
+                if (is_white and rank == 1) or (not is_white and rank == 6):
+                    new_rank2 = rank + 2 * direction
+                    if 0 <= new_rank2 < 8 and self.board[new_rank2, file] == 0:
+                        moves.append(move_to_uci(sq, coords_to_sq(new_rank2, file)))
 
         # Captures
         for capture_file in [file - 1, file + 1]:
@@ -148,10 +155,17 @@ class SimpleChessBoard:
                 new_rank = rank + direction
                 if 0 <= new_rank < 8:
                     target_piece = self.board[new_rank, capture_file]
-                    if (is_white and target_piece < 0) or (not is_white and target_piece > 0):
+                    can_capture = (is_white and target_piece < 0) or (not is_white and target_piece > 0)
+                    
+                    # En passant capture
+                    if not can_capture and self.en_passant_square == (new_rank, capture_file):
+                        can_capture = True
+                    
+                    if can_capture:
                         # Check for promotion
                         if (is_white and new_rank == 7) or (not is_white and new_rank == 0):
-                            moves.append(move_to_uci(sq, coords_to_sq(new_rank, capture_file)) + 'q')
+                            for promo in ['q', 'r', 'b', 'n']:
+                                moves.append(move_to_uci(sq, coords_to_sq(new_rank, capture_file)) + promo)
                         else:
                             moves.append(move_to_uci(sq, coords_to_sq(new_rank, capture_file)))
 
@@ -188,6 +202,34 @@ class SimpleChessBoard:
 
                 if not self._is_attacked_on_board(test_board, new_king_sq, not is_white):
                     moves.append(move_to_uci(sq, coords_to_sq(new_rank, new_file)))
+
+        # Castling
+        if is_white and rank == 0:
+            # Kingside castling
+            if self.castling_rights[0] and self.board[0, 5] == 0 and self.board[0, 6] == 0:
+                if not self._is_attacked_on_board(self.board, coords_to_sq(0, 4), False) and \
+                   not self._is_attacked_on_board(self.board, coords_to_sq(0, 5), False) and \
+                   not self._is_attacked_on_board(self.board, coords_to_sq(0, 6), False):
+                    moves.append('e1g1')
+            # Queenside castling
+            if self.castling_rights[1] and self.board[0, 1] == 0 and self.board[0, 2] == 0 and self.board[0, 3] == 0:
+                if not self._is_attacked_on_board(self.board, coords_to_sq(0, 4), False) and \
+                   not self._is_attacked_on_board(self.board, coords_to_sq(0, 3), False) and \
+                   not self._is_attacked_on_board(self.board, coords_to_sq(0, 2), False):
+                    moves.append('e1c1')
+        elif not is_white and rank == 7:
+            # Kingside castling
+            if self.castling_rights[2] and self.board[7, 5] == 0 and self.board[7, 6] == 0:
+                if not self._is_attacked_on_board(self.board, coords_to_sq(7, 4), True) and \
+                   not self._is_attacked_on_board(self.board, coords_to_sq(7, 5), True) and \
+                   not self._is_attacked_on_board(self.board, coords_to_sq(7, 6), True):
+                    moves.append('e8g8')
+            # Queenside castling
+            if self.castling_rights[3] and self.board[7, 1] == 0 and self.board[7, 2] == 0 and self.board[7, 3] == 0:
+                if not self._is_attacked_on_board(self.board, coords_to_sq(7, 4), True) and \
+                   not self._is_attacked_on_board(self.board, coords_to_sq(7, 3), True) and \
+                   not self._is_attacked_on_board(self.board, coords_to_sq(7, 2), True):
+                    moves.append('e8c8')
 
     def _generate_sliding_moves(self, sq, rank, file, piece_type, is_white, moves):
         """Generate all pseudo-legal sliding piece moves (rook, bishop, queen)."""
@@ -238,173 +280,4 @@ class SimpleChessBoard:
             if piece_type == PAWN:
                 self._generate_pawn_moves(sq, rank, file, piece, is_white, pseudo_moves)
             elif piece_type == KNIGHT:
-                self._generate_knight_moves(sq, rank, file, is_white, pseudo_moves)
-            elif piece_type == KING:
-                # King moves already check for check in _generate_king_moves
-                self._generate_king_moves(sq, rank, file, piece, is_white, pseudo_moves)
-            elif piece_type in [ROOK, BISHOP, QUEEN]:
-                self._generate_sliding_moves(sq, rank, file, piece_type, is_white, pseudo_moves)
-
-        # Filter moves that leave own king in check
-        king_val = KING if self.white_to_move else -KING
-        promo_map = {'q': QUEEN, 'r': ROOK, 'b': BISHOP, 'n': KNIGHT}
-        legal = []
-
-        for m in pseudo_moves:
-            mf = ord(m[0]) - ord('a')
-            mr = int(m[1]) - 1
-            tf = ord(m[2]) - ord('a')
-            tr = int(m[3]) - 1
-
-            test_board = self.board.copy()
-            moved_piece = test_board[mr, mf]
-            test_board[mr, mf] = 0
-
-            if len(m) > 4:
-                promo_type = promo_map.get(m[4], QUEEN)
-                test_board[tr, tf] = promo_type if self.white_to_move else -promo_type
-            else:
-                test_board[tr, tf] = moved_piece
-
-            # Find king position after this move
-            king_sq = None
-            for s in range(64):
-                r, f = sq_to_coords(s)
-                if test_board[r, f] == king_val:
-                    king_sq = s
-                    break
-
-            if king_sq is not None and not self._is_attacked_on_board(test_board, king_sq, not self.white_to_move):
-                legal.append(m)
-
-        return legal
-
-    def apply_move(self, uci):
-        """Apply a move in UCI format with proper tracking of special states."""
-        from_file = ord(uci[0]) - ord('a')
-        from_rank = int(uci[1]) - 1
-        to_file = ord(uci[2]) - ord('a')
-        to_rank = int(uci[3]) - 1
-
-        piece = self.board[from_rank, from_file]
-        piece_type = abs(piece)
-        is_white = piece > 0
-
-        # Update castling rights
-        if piece_type == KING:
-            if is_white:
-                self.castling_rights[0] = False  # WK
-                self.castling_rights[1] = False  # WQ
-            else:
-                self.castling_rights[2] = False  # BK
-                self.castling_rights[3] = False  # BQ
-        elif piece_type == ROOK:
-            if is_white:
-                if from_rank == 0 and from_file == 0:
-                    self.castling_rights[1] = False  # WQ
-                elif from_rank == 0 and from_file == 7:
-                    self.castling_rights[0] = False  # WK
-            else:
-                if from_rank == 7 and from_file == 0:
-                    self.castling_rights[3] = False  # BQ
-                elif from_rank == 7 and from_file == 7:
-                    self.castling_rights[2] = False  # BK
-
-        # Update en passant square
-        self.en_passant_square = None
-        if piece_type == PAWN and abs(from_rank - to_rank) == 2:
-            mid_rank = (from_rank + to_rank) // 2
-            self.en_passant_square = (mid_rank, from_file)
-
-        # Handle pawn promotion
-        if len(uci) > 4:
-            promotion_piece = uci[4].lower()
-            promotion_map = {'q': QUEEN, 'r': ROOK, 'b': BISHOP, 'n': KNIGHT}
-            new_piece_type = promotion_map.get(promotion_piece, QUEEN)
-            self.board[from_rank, from_file] = 0
-            self.board[to_rank, to_file] = new_piece_type if is_white else -new_piece_type
-        else:
-            # Move the piece
-            self.board[from_rank, from_file] = 0
-            self.board[to_rank, to_file] = piece
-
-            # Handle castling (king moves 2 squares)
-            if piece_type == KING and abs(from_file - to_file) == 2:
-                if to_file > from_file:  # Kingside
-                    rook_from_file, rook_to_file = 7, 5
-                else:  # Queenside
-                    rook_from_file, rook_to_file = 0, 3
-                rook = self.board[from_rank, rook_from_file]
-                self.board[from_rank, rook_from_file] = 0
-                self.board[from_rank, rook_to_file] = rook
-
-        self.white_to_move = not self.white_to_move
-        self.moves_played += 1
-
-    def is_game_over(self):
-        """Check if the game is over.
-
-        Returns:
-            tuple: (done, result) where result is '1-0', '0-1', or '1/2-1/2'.
-        """
-        legal = self.get_legal_moves()
-
-        if not legal:
-            # Find the current player's king
-            king_val = KING if self.white_to_move else -KING
-            for sq in range(64):
-                rank, file = sq_to_coords(sq)
-                if self.board[rank, file] == king_val:
-                    if self._is_attacked_on_board(self.board, sq, not self.white_to_move):
-                        # Checkmate: current player lost
-                        return True, "0-1" if self.white_to_move else "1-0"
-                    else:
-                        return True, "1/2-1/2"
-            return True, "1/2-1/2"
-
-        # Draw by move limit
-        if self.moves_played >= 200:
-            return True, "1/2-1/2"
-
-        return False, ""
-
-
-def encode_simple_board(board):
-    """Encode a SimpleChessBoard as a tensor for neural network input.
-
-    Returns:
-        torch.Tensor: Shape (1, 18, 8, 8) matching ChessNet's expected input.
-    """
-    piece_planes = {PAWN: 0, KNIGHT: 1, BISHOP: 2, ROOK: 3, QUEEN: 4, KING: 5}
-    planes = [np.zeros((8, 8), dtype=np.float32) for _ in range(12)]
-
-    for r in range(8):
-        for f in range(8):
-            piece = board.board[r, f]
-            if piece != 0:
-                piece_type = abs(piece)
-                if piece_type in piece_planes:
-                    plane_idx = piece_planes[piece_type]
-                    if piece > 0:  # White piece
-                        planes[plane_idx][r, f] = 1.0
-                    else:  # Black piece
-                        planes[plane_idx + 6][r, f] = 1.0
-
-    # Plane 12: side to move
-    stm = 1.0 if board.white_to_move else 0.0
-    planes.append(np.full((8, 8), stm, dtype=np.float32))
-
-    # Planes 13-16: castling rights (WK, WQ, BK, BQ)
-    for right in board.castling_rights:
-        val = 1.0 if right else 0.0
-        planes.append(np.full((8, 8), val, dtype=np.float32))
-
-    # Plane 17: en passant target square
-    ep_plane = np.zeros((8, 8), dtype=np.float32)
-    if board.en_passant_square is not None:
-        r, f = board.en_passant_square
-        ep_plane[r, f] = 1.0
-    planes.append(ep_plane)
-
-    x = np.stack(planes, axis=0)  # (18, 8, 8)
-    return torch.from_numpy(x).unsqueeze(0)  # (1, 18, 8, 8)
+                self._generate_knight_moves(sq, rank, file, is_white, pseudo_moves
