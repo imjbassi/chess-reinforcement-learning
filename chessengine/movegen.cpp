@@ -220,16 +220,25 @@ std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
         int ep = b.ep_square();
         if (ep >= 0) {
             int ep_rank = ep >> 3;
+            int ep_file = ep & 7;
             if (W && ep_rank == 5) {
-                int from1 = ep - 9;
-                int from2 = ep - 7;
-                if (from1 >= 0 && from1 < 64 && ((pawns >> from1) & 1)) push_move(moves, from1, ep);
-                if (from2 >= 0 && from2 < 64 && ((pawns >> from2) & 1)) push_move(moves, from2, ep);
+                if (ep_file > 0) {
+                    int from1 = ep - 9;
+                    if ((pawns >> from1) & 1) push_move(moves, from1, ep);
+                }
+                if (ep_file < 7) {
+                    int from2 = ep - 7;
+                    if ((pawns >> from2) & 1) push_move(moves, from2, ep);
+                }
             } else if (!W && ep_rank == 2) {
-                int from1 = ep + 9;
-                int from2 = ep + 7;
-                if (from1 >= 0 && from1 < 64 && ((pawns >> from1) & 1)) push_move(moves, from1, ep);
-                if (from2 >= 0 && from2 < 64 && ((pawns >> from2) & 1)) push_move(moves, from2, ep);
+                if (ep_file < 7) {
+                    int from1 = ep + 9;
+                    if ((pawns >> from1) & 1) push_move(moves, from1, ep);
+                }
+                if (ep_file > 0) {
+                    int from2 = ep + 7;
+                    if ((pawns >> from2) & 1) push_move(moves, from2, ep);
+                }
             }
         }
     }
@@ -319,5 +328,4 @@ std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
         int rights = b.castling_rights();
         if (W) {
             // White kingside
-            if ((rights & 1) && !(occ & ((1ULL << 5) | (1ULL << 6)))) {
-                
+            if ((rights & 1) && !(occ & ((1ULL << 5) |
