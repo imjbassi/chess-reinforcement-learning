@@ -129,6 +129,8 @@ static bool is_square_attacked(int sq, bool by_white, const uint64_t *pieces, ui
 
 std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
     std::vector<std::string> moves;
+    moves.reserve(128); // Reserve space for typical move count
+    
     const uint64_t *P = b.pieces();
     bool W = b.white_to_move();
     
@@ -327,5 +329,4 @@ std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
         // Castling
         int rights = b.castling_rights();
         if (W) {
-            // White kingside
-            if ((rights & 1) && !(occ & ((1ULL << 5) |
+            // White kingside (e1-g1)
