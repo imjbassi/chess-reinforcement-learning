@@ -7,6 +7,7 @@ This document describes the architecture of the Chess-RL system, a reinforcement
 ## System Architecture
 
 The system consists of three main layers:
+
 1. **C++ Chess Engine** - High-performance move generation and board representation
 2. **Neural Network** - Deep learning model for position evaluation and move selection
 3. **Training Pipeline** - Self-play and learning infrastructure
@@ -106,6 +107,7 @@ Self-Play → Experience Buffer → Training Batches → Network Update → Eval
 ## Future Enhancements
 
 Potential areas for expansion:
+
 - Distributed self-play across multiple machines
 - Opening book integration
 - Endgame tablebase support
