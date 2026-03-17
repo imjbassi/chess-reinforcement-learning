@@ -1,3 +1,4 @@
+```python
 import sys
 import os
 
@@ -108,6 +109,15 @@ class ChessBoard:
         """
         return self._board.export_fen()
 
+    def load_fen(self, fen: str):
+        """
+        Load a board position from a FEN string.
+
+        Args:
+            fen: FEN string representing the desired board state.
+        """
+        self._board.load_fen(fen)
+
     def __repr__(self):
         """
         Return a string representation of the ChessBoard instance.
@@ -125,3 +135,4 @@ class ChessBoard:
             str: A string showing the current FEN position.
         """
         return self.get_fen()
+```
