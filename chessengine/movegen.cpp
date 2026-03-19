@@ -48,6 +48,9 @@ static inline uint64_t knight_attacks(int sq) {
 
 // Check if a square is attacked by the opponent
 static bool is_square_attacked(int sq, bool by_white, const uint64_t *pieces, uint64_t occ) {
+    int sq_file = sq & 7;
+    int sq_rank = sq >> 3;
+    
     // Pawn attacks
     int pawn_offset1 = by_white ? 7 : -7;
     int pawn_offset2 = by_white ? 9 : -9;
@@ -66,9 +69,6 @@ static bool is_square_attacked(int sq, bool by_white, const uint64_t *pieces, ui
     if (knight_attacks(sq) & knights) return true;
     
     // Sliding pieces (rooks, bishops, queens)
-    int sq_file = sq & 7;
-    int sq_rank = sq >> 3;
-    
     // Rook-like moves (horizontal/vertical)
     for (int d : ROOK_DIRS) {
         int t = sq + d;
@@ -129,7 +129,7 @@ static bool is_square_attacked(int sq, bool by_white, const uint64_t *pieces, ui
 
 std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
     std::vector<std::string> moves;
-    moves.reserve(128); // Reserve space for typical move count
+    moves.reserve(128);
     
     const uint64_t *P = b.pieces();
     bool W = b.white_to_move();
@@ -303,14 +303,14 @@ std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
     {
         uint64_t queens = P[W ? WQ : BQ];
         generate_sliding_moves(queens, ROOK_DIRS);
-        queens = P[W ? WQ : BQ]; // Reset bitboard
+        queens = P[W ? WQ : BQ];
         generate_sliding_moves(queens, BISHOP_DIRS);
     }
 
     // 5) King moves + castling
     {
         uint64_t king_bb = P[W ? WK : BK];
-        if (!king_bb) return moves; // No king, return early
+        if (!king_bb) return moves;
         
         int king_sq = pop_lsb(king_bb);
         int king_file = king_sq & 7;
@@ -330,3 +330,4 @@ std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
         int rights = b.castling_rights();
         if (W) {
             // White kingside (e1-g1)
+            if ((rights & 1) && king_sq == 4)
