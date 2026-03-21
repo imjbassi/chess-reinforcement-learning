@@ -1,3 +1,6 @@
+Here is the improved version of the file:
+
+```python
 import torch
 import torch.nn as nn
 import numpy as np
@@ -54,8 +57,8 @@ def encode_board(chessboard):
     t = torch.from_numpy(x).unsqueeze(0)  # Shape: (1, 18, 8, 8)
     
     # Move to CUDA if available
-    if torch.cuda.is_available():
-        t = t.cuda()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    t = t.to(device)
     
     return t
 
@@ -207,3 +210,4 @@ class ChessNet(nn.Module):
         value = self.value_head(features)
         
         return policy, value
+```
