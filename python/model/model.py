@@ -1,5 +1,3 @@
-Here is the improved version of the file:
-
 ```python
 import torch
 import torch.nn as nn
