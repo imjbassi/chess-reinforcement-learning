@@ -103,6 +103,19 @@ cd chess-reinforcement-learning
 pip install -r requirements.txt
 ```
 
+### Building the C++ Engine
+
+Compile the C++ chess engine with Python bindings:
+
+```bash
+# Build instructions will vary based on your build system
+# Example using CMake (if applicable):
+mkdir build
+cd build
+cmake ..
+make
+```
+
 ### Usage
 
 Run the PyGame visualization:
@@ -149,6 +162,6 @@ This project was inspired by DeepMind's AlphaZero and the broader research in ga
 
 ---
 
-## Repository Link
+## Contact
 
-[Chess-RL GitHub Repository](https://github.com/imjbassi/chess-reinforcement-learning)
+For questions or feedback, please open an issue on the [GitHub repository](https://github.com/imjbassi/chess-reinforcement-learning).
