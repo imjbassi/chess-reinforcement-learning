@@ -33,7 +33,6 @@ class ChessBoard:
                           Defaults to True (standard chess starting position).
         """
         self._board = Board()
-        # Store which side to move for resets
         self._initial_side = "w" if white_to_move else "b"
         self.reset()
 
