@@ -82,10 +82,11 @@ uint64_t queen_attacks(int square, uint64_t occupancy) {
 // King attacks (one square in any direction)
 uint64_t king_attacks(int square) {
     const uint64_t b = 1ULL << square;
-    uint64_t attacks = ((b << 1) & 0xfefefefefefefefeULL) | ((b >> 1) & 0x7f7f7f7f7f7f7f7fULL);
-    const uint64_t extended = b | attacks;
-    attacks |= ((extended << 8) | (extended >> 8));
-    return attacks & ~b;  // Exclude the king's own square
+    const uint64_t left = (b >> 1) & 0x7f7f7f7f7f7f7f7fULL;
+    const uint64_t right = (b << 1) & 0xfefefefefefefefeULL;
+    const uint64_t horizontal = left | right;
+    const uint64_t extended = b | horizontal;
+    return ((extended << 8) | (extended >> 8) | horizontal) & ~b;
 }
 
 // Pawn attacks (diagonal captures only, not forward moves)
@@ -93,9 +94,9 @@ uint64_t pawn_attacks(int square, bool white) {
     const uint64_t b = 1ULL << square;
     if (white) {
         // White pawns attack diagonally upward (left and right)
-        return (((b << 7) & 0x7f7f7f7f7f7f7f7fULL) | ((b << 9) & 0xfefefefefefefefeULL));
+        return ((b << 7) & 0x7f7f7f7f7f7f7f7fULL) | ((b << 9) & 0xfefefefefefefefeULL);
     } else {
         // Black pawns attack diagonally downward (left and right)
-        return (((b >> 7) & 0xfefefefefefefefeULL) | ((b >> 9) & 0x7f7f7f7f7f7f7f7fULL));
+        return ((b >> 7) & 0xfefefefefefefefeULL) | ((b >> 9) & 0x7f7f7f7f7f7f7f7fULL);
     }
 }
