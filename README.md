@@ -108,8 +108,7 @@ pip install -r requirements.txt
 Compile the C++ chess engine with Python bindings:
 
 ```bash
-# Build instructions will vary based on your build system
-# Example using CMake (if applicable):
+# Example using CMake:
 mkdir build
 cd build
 cmake ..
