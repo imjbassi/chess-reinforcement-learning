@@ -1,3 +1,4 @@
+```cpp
 #include <cstdint>
 #include "attack_tables.h"
 
@@ -100,3 +101,4 @@ uint64_t pawn_attacks(int square, bool white) {
         return ((b >> 7) & 0xfefefefefefefefeULL) | ((b >> 9) & 0x7f7f7f7f7f7f7f7fULL);
     }
 }
+```
