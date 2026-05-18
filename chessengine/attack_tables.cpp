@@ -94,11 +94,15 @@ uint64_t king_attacks(int square) {
 uint64_t pawn_attacks(int square, bool white) {
     const uint64_t b = 1ULL << square;
     if (white) {
-        // White pawns attack diagonally upward (left and right)
-        return ((b << 7) & 0x7f7f7f7f7f7f7f7fULL) | ((b << 9) & 0xfefefefefefefefeULL);
+        // White pawns attack diagonally upward (northeast and northwest)
+        const uint64_t left_attack = (b << 7) & 0xfefefefefefefefeULL;   // Northwest (avoid H-file wrap)
+        const uint64_t right_attack = (b << 9) & 0x7f7f7f7f7f7f7f7fULL;  // Northeast (avoid A-file wrap)
+        return left_attack | right_attack;
     } else {
-        // Black pawns attack diagonally downward (left and right)
-        return ((b >> 7) & 0xfefefefefefefefeULL) | ((b >> 9) & 0x7f7f7f7f7f7f7f7fULL);
+        // Black pawns attack diagonally downward (southeast and southwest)
+        const uint64_t left_attack = (b >> 9) & 0xfefefefefefefefeULL;   // Southwest (avoid H-file wrap)
+        const uint64_t right_attack = (b >> 7) & 0x7f7f7f7f7f7f7f7fULL;  // Southeast (avoid A-file wrap)
+        return left_attack | right_attack;
     }
 }
 ```
