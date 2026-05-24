@@ -108,7 +108,7 @@ pip install -r requirements.txt
 Compile the C++ chess engine with Python bindings:
 
 ```bash
-# Example using CMake:
+# Example using CMake
 mkdir build
 cd build
 cmake ..
@@ -139,7 +139,7 @@ python selfplay.py
 
 ## Development Status
 
-Chess-RL successfully demonstrates the principles and effectiveness of reinforcement learning within the chess domain. The hybrid approach of using both C++ (performance optimization) and Python (rapid development and visualization) offers a balance of efficiency and flexibility. Visualization tools provide clear insights into the AI's decision-making process during training and gameplay.
+Chess-RL successfully demonstrates the principles and effectiveness of reinforcement learning within the chess domain. The hybrid approach of using both C++ (for performance optimization) and Python (for rapid development and visualization) offers a balance of efficiency and flexibility. Visualization tools provide clear insights into the AI's decision-making process during training and gameplay.
 
 ---
 
