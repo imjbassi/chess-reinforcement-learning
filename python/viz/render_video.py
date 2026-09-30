@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Render a Chess-RL self-play game as a polished MP4 video.
+Render a Chess-RL self-play game as an MP4 video in a clean,
+white-background, research-figure style.
 
 The network plays a game against itself while every position, policy
 distribution, and value estimate is recorded. Each ply is then rendered
@@ -24,7 +25,7 @@ import subprocess
 import sys
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'train')))
@@ -50,23 +51,36 @@ PANEL_X = GAUGE_X + 44
 PANEL_W = W - PANEL_X - 40
 
 # ---------------------------------------------------------------- palette ---
-BG_TOP = (16, 19, 28)
-BG_BOT = (30, 34, 48)
-LIGHT_SQ = (222, 208, 182)
-DARK_SQ = (140, 112, 92)
-BOARD_EDGE = (10, 12, 18)
-ACCENT = (108, 190, 255)
-ACCENT_WARM = (255, 176, 92)
-TEXT = (232, 236, 244)
-TEXT_DIM = (148, 156, 172)
-LAST_MOVE = (246, 220, 96)
-CHECK_RED = (255, 84, 72)
+# White-background, print-style figure aesthetic. Candidate/chosen colors are
+# the Okabe-Ito blue and vermillion (colorblind-safe on a white surface).
+SURFACE = (252, 252, 251)
+LIGHT_SQ = (244, 242, 237)
+DARK_SQ = (181, 177, 166)
+BOARD_EDGE = (60, 60, 60)
+ACCENT = (0, 114, 178)        # candidate moves (Okabe-Ito blue)
+ACCENT_WARM = (213, 94, 0)    # chosen move (Okabe-Ito vermillion)
+TEXT = (26, 26, 26)
+TEXT_DIM = (110, 110, 110)
+HAIRLINE = (208, 206, 202)
+BAR_TRACK = (236, 235, 232)
+LAST_MOVE = (240, 210, 80)
+CHECK_RED = (197, 58, 50)
 
 FONT_DIR = "/usr/share/fonts/truetype/dejavu"
 
 
 def font(size, bold=False):
     name = "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
+    return ImageFont.truetype(os.path.join(FONT_DIR, name), size)
+
+
+def serif(size, bold=False):
+    name = "DejaVuSerif-Bold.ttf" if bold else "DejaVuSerif.ttf"
+    return ImageFont.truetype(os.path.join(FONT_DIR, name), size)
+
+
+def mono(size, bold=False):
+    name = "DejaVuSansMono-Bold.ttf" if bold else "DejaVuSansMono.ttf"
     return ImageFont.truetype(os.path.join(FONT_DIR, name), size)
 
 
@@ -160,42 +174,31 @@ def play_game(net, max_plies, temperature, seed):
 
 # ---------------------------------------------------------------- drawing ---
 def make_background():
-    """Vertical gradient with a soft vignette, drawn once."""
-    grad = np.linspace(0, 1, H)[:, None]
-    top = np.array(BG_TOP, dtype=float)
-    bot = np.array(BG_BOT, dtype=float)
-    rows = top * (1 - grad) + bot * grad
-    arr = np.repeat(rows[:, None, :], W, axis=1).astype(np.uint8)
-    bg = Image.fromarray(arr, 'RGB')
-
-    glow = Image.new('L', (W, H), 0)
-    d = ImageDraw.Draw(glow)
-    d.ellipse([W * 0.05, -H * 0.4, W * 0.75, H * 0.55], fill=46)
-    glow = glow.filter(ImageFilter.GaussianBlur(120))
-    tint = Image.new('RGB', (W, H), (64, 96, 150))
-    bg = Image.composite(Image.blend(bg, tint, 0.35), bg, glow)
-    return bg
+    """Plain paper-white surface, drawn once."""
+    return Image.new('RGB', (W, H), SURFACE)
 
 
 def draw_board_base(draw):
-    draw.rounded_rectangle(
-        [BOARD_X - 10, BOARD_Y - 10, BOARD_X + BOARD_S + 10, BOARD_Y + BOARD_S + 10],
-        radius=14, fill=BOARD_EDGE)
     for rank in range(8):
         for file in range(8):
             x = BOARD_X + file * SQ
             y = BOARD_Y + (7 - rank) * SQ
             color = LIGHT_SQ if (rank + file) % 2 else DARK_SQ
             draw.rectangle([x, y, x + SQ, y + SQ], fill=color)
-    coord_font = font(13, bold=True)
+    # Hairline frame, as in a printed diagram
+    draw.rectangle([BOARD_X - 1, BOARD_Y - 1,
+                    BOARD_X + BOARD_S, BOARD_Y + BOARD_S],
+                   outline=BOARD_EDGE, width=1)
+    # File and rank labels outside the board
+    coord_font = font(12)
     for file in range(8):
-        draw.text((BOARD_X + file * SQ + SQ - 12, BOARD_Y + BOARD_S - 17),
-                  chr(ord('a') + file), font=coord_font,
-                  fill=DARK_SQ if file % 2 else LIGHT_SQ)
+        c = chr(ord('a') + file)
+        cw = draw.textlength(c, font=coord_font)
+        draw.text((BOARD_X + file * SQ + (SQ - cw) / 2, BOARD_Y + BOARD_S + 6),
+                  c, font=coord_font, fill=TEXT_DIM)
     for rank in range(8):
-        draw.text((BOARD_X + 4, BOARD_Y + (7 - rank) * SQ + 3),
-                  str(rank + 1), font=coord_font,
-                  fill=LIGHT_SQ if rank % 2 else DARK_SQ)
+        draw.text((BOARD_X - 16, BOARD_Y + (7 - rank) * SQ + SQ / 2 - 8),
+                  str(rank + 1), font=coord_font, fill=TEXT_DIM)
 
 
 def highlight_square(overlay_draw, rank, file, color, alpha):
@@ -219,8 +222,10 @@ def draw_arrow(overlay, from_sq, to_sq, color, prob, emphasize=False):
     base = tip - u * head
     perp = np.array([-u[1], u[0]])
 
-    width = max(5, int(SQ * (0.12 + 0.20 * prob)))
-    alpha = int(190 + 60 * prob) if emphasize else int(90 + 110 * prob)
+    # Flat, print-style arrows: opacity encodes probability, the chosen
+    # move is fully opaque in the vermillion accent.
+    width = max(4, int(SQ * (0.10 + 0.16 * prob)))
+    alpha = 235 if emphasize else int(90 + 100 * prob)
 
     layer = Image.new('RGBA', overlay.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
@@ -228,9 +233,6 @@ def draw_arrow(overlay, from_sq, to_sq, color, prob, emphasize=False):
     wing = perp * (width * 1.35)
     d.polygon([tuple(tip), tuple(base + wing), tuple(base - wing)],
               fill=color + (alpha,))
-    if emphasize:
-        glow = layer.filter(ImageFilter.GaussianBlur(6))
-        overlay.alpha_composite(glow)
     overlay.alpha_composite(layer)
 
 
@@ -250,55 +252,61 @@ def in_check(board_arr, white):
     return tmp._is_attacked_on_board(board_arr, coords_to_sq(*king), not white)
 
 
+def section_heading(draw, x, y, width, label):
+    """Small-caps style heading over a hairline rule."""
+    draw.text((x, y), label, font=font(13, bold=True), fill=TEXT)
+    draw.line([x, y + 22, x + width, y + 22], fill=HAIRLINE, width=1)
+    return y + 32
+
+
 def draw_panel(draw, ply_data, ply_index, total_plies, history, shown_value):
     y = BOARD_Y - 6
-    draw.text((PANEL_X, y), "POLICY NETWORK", font=font(15, bold=True), fill=ACCENT)
+    y = section_heading(draw, PANEL_X, y, PANEL_W, "POLICY  π(a | s)")
     mover = "White" if ply_data['white_to_move'] else "Black"
-    draw.text((PANEL_X + PANEL_W - 132, y), f"ply {ply_index + 1}/{total_plies}",
-              font=font(14), fill=TEXT_DIM)
-    y += 30
-    draw.text((PANEL_X, y), f"{mover} to move · sampling T=1.2",
+    draw.text((PANEL_X + PANEL_W - 118, BOARD_Y - 6),
+              f"ply {ply_index + 1}/{total_plies}", font=font(13), fill=TEXT_DIM)
+    draw.text((PANEL_X, y), f"{mover} to move · sampled at T = 1.2",
               font=font(13), fill=TEXT_DIM)
-    y += 30
+    y += 28
 
-    # Candidate probability bars
-    bar_w = PANEL_W - 120
+    # Candidate probability bars (thin marks on a light track)
+    bar_w = PANEL_W - 130
     p_max = max(p for _, p in ply_data['top']) or 1.0
     for uci, p in ply_data['top']:
         chosen = uci == ply_data['move']
-        label_font = font(15, bold=chosen)
-        draw.text((PANEL_X, y), uci, font=label_font,
+        draw.text((PANEL_X, y), uci, font=mono(14, bold=chosen),
                   fill=TEXT if chosen else TEXT_DIM)
-        bx = PANEL_X + 66
-        draw.rounded_rectangle([bx, y + 3, bx + bar_w, y + 15], radius=6,
-                               fill=(255, 255, 255, 18) if not chosen else (255, 255, 255, 26))
-        fill_w = max(8, int(bar_w * 0.85 * p / p_max))
-        color = ACCENT_WARM if chosen else (86, 110, 150)
-        draw.rounded_rectangle([bx, y + 3, bx + fill_w, y + 15], radius=6, fill=color)
-        draw.text((bx + bar_w + 10, y), f"{p * 100:4.1f}%", font=font(13),
+        bx = PANEL_X + 72
+        draw.rounded_rectangle([bx, y + 4, bx + bar_w, y + 14], radius=4,
+                               fill=BAR_TRACK)
+        fill_w = max(6, int(bar_w * 0.9 * p / p_max))
+        draw.rounded_rectangle([bx, y + 4, bx + fill_w, y + 14], radius=4,
+                               fill=ACCENT_WARM if chosen else ACCENT)
+        draw.text((bx + bar_w + 12, y), f"{p * 100:4.1f}%", font=font(13),
                   fill=TEXT if chosen else TEXT_DIM)
-        y += 26
+        y += 25
 
-    # Value head
-    y += 16
-    draw.text((PANEL_X, y), "VALUE HEAD", font=font(15, bold=True), fill=ACCENT)
-    y += 26
-    vx, vw = PANEL_X, PANEL_W - 70
-    draw.rounded_rectangle([vx, y + 2, vx + vw, y + 16], radius=7, fill=(255, 255, 255, 16))
+    # Value head: diverging bar around a neutral midpoint
+    y += 14
+    y = section_heading(draw, PANEL_X, y, PANEL_W, "VALUE  v(s)")
+    vx, vw = PANEL_X, PANEL_W - 78
+    draw.rounded_rectangle([vx, y + 4, vx + vw, y + 14], radius=4, fill=BAR_TRACK)
     mid = vx + vw // 2
-    draw.line([mid, y, mid, y + 18], fill=TEXT_DIM, width=1)
+    draw.line([mid, y + 1, mid, y + 17], fill=TEXT_DIM, width=1)
     v = max(-1.0, min(1.0, shown_value))
-    end = mid + int((vw // 2 - 4) * v)
-    color = (120, 214, 148) if v >= 0 else (240, 120, 110)
+    end = mid + int((vw // 2 - 2) * v)
     draw.rounded_rectangle([min(mid, end), y + 4, max(mid, end), y + 14],
-                           radius=5, fill=color)
-    draw.text((vx + vw + 12, y - 1), f"{shown_value:+.2f}", font=font(15, bold=True),
-              fill=color)
-    y += 40
+                           radius=4, fill=ACCENT if v >= 0 else ACCENT_WARM)
+    draw.text((vx + vw + 12, y - 1), f"{shown_value:+.2f}",
+              font=mono(14, bold=True), fill=TEXT)
+    draw.text((vx, y + 20), "−1 (Black)", font=font(11), fill=TEXT_DIM)
+    lbl = "+1 (White)"
+    draw.text((vx + vw - draw.textlength(lbl, font=font(11)), y + 20), lbl,
+              font=font(11), fill=TEXT_DIM)
+    y += 44
 
     # Move history
-    draw.text((PANEL_X, y), "GAME", font=font(15, bold=True), fill=ACCENT)
-    y += 26
+    y = section_heading(draw, PANEL_X, y, PANEL_W, "MOVES")
     recent = history[-16:]
     start_no = len(history) - len(recent)
     col, row = 0, 0
@@ -306,8 +314,8 @@ def draw_panel(draw, ply_data, ply_index, total_plies, history, shown_value):
         n = start_no + i
         label = f"{n // 2 + 1}.{'' if n % 2 == 0 else '..'}{mv}"
         tx = PANEL_X + col * ((PANEL_W // 2) + 6)
-        draw.text((tx, y + row * 22), label,
-                  font=font(13, bold=(i == len(recent) - 1)),
+        draw.text((tx, y + row * 21), label,
+                  font=mono(13, bold=(i == len(recent) - 1)),
                   fill=TEXT if i == len(recent) - 1 else TEXT_DIM)
         col += 1
         if col == 2:
@@ -316,16 +324,16 @@ def draw_panel(draw, ply_data, ply_index, total_plies, history, shown_value):
 
 def draw_eval_gauge(img, draw, shown_value):
     """Vertical white/black advantage gauge beside the board."""
-    gy, gh, gw = BOARD_Y, BOARD_S, 20
-    draw.rounded_rectangle([GAUGE_X, gy, GAUGE_X + gw, gy + gh], radius=9,
-                           fill=(8, 9, 13))
+    gy, gh, gw = BOARD_Y, BOARD_S, 18
     v = max(-1.0, min(1.0, shown_value))
     white_frac = 0.5 + v / 2
     split = gy + gh - int(gh * white_frac)
-    draw.rounded_rectangle([GAUGE_X + 2, split, GAUGE_X + gw - 2, gy + gh - 2],
-                           radius=7, fill=(236, 238, 242))
-    draw.line([GAUGE_X + 2, gy + gh // 2, GAUGE_X + gw - 2, gy + gh // 2],
-              fill=(120, 126, 140), width=1)
+    draw.rectangle([GAUGE_X, gy, GAUGE_X + gw, split], fill=(70, 70, 70))
+    draw.rectangle([GAUGE_X, split, GAUGE_X + gw, gy + gh], fill=(252, 252, 252))
+    draw.rectangle([GAUGE_X, gy, GAUGE_X + gw, gy + gh],
+                   outline=BOARD_EDGE, width=1)
+    draw.line([GAUGE_X, gy + gh // 2, GAUGE_X + gw, gy + gh // 2],
+              fill=(150, 150, 150), width=1)
 
 
 def render_frame(bg, pieces, board_arr, *, last_move=None, moving=None,
@@ -334,15 +342,20 @@ def render_frame(bg, pieces, board_arr, *, last_move=None, moving=None,
     img = bg.copy()
     draw = ImageDraw.Draw(img, 'RGBA')
 
-    # Header
-    title_font = font(26, bold=True)
-    draw.text((BOARD_X - 4, 26), "CHESS-RL", font=title_font, fill=TEXT)
-    tw = draw.textlength("CHESS-RL", font=title_font)
-    draw.text((BOARD_X + tw + 10, 33), "· neural self-play", font=font(17),
-              fill=TEXT_DIM)
-    tag = "policy + value network · AlphaZero-style training loop"
-    draw.text((W - 40 - draw.textlength(tag, font=font(14)), 34), tag,
-              font=font(14), fill=TEXT_DIM)
+    # Header, styled like a paper figure heading
+    title_font = serif(24, bold=True)
+    draw.text((BOARD_X - 16, 22), "Chess-RL: Self-Play with Policy and Value Heads",
+              font=title_font, fill=TEXT)
+    tag = "AlphaZero-style training loop"
+    draw.text((W - 40 - draw.textlength(tag, font=font(13)), 30), tag,
+              font=font(13), fill=TEXT_DIM)
+    draw.line([BOARD_X - 16, 62, W - 40, 62], fill=HAIRLINE, width=1)
+
+    # Figure caption in the lower right column
+    cap1 = "Figure 1.  One self-play game. Arrows show the top-5 policy candidates"
+    cap2 = "π(a | s) (opacity ∝ probability); the sampled move is drawn in vermillion."
+    draw.text((PANEL_X, H - 62), cap1, font=serif(13), fill=TEXT_DIM)
+    draw.text((PANEL_X, H - 42), cap2, font=serif(13), fill=TEXT_DIM)
 
     draw_board_base(draw)
 
@@ -390,8 +403,8 @@ def render_frame(bg, pieces, board_arr, *, last_move=None, moving=None,
         y = int(y1 + (y2 - y1) * t)
         piece_img = pieces[moving['piece']]
         shadow = Image.new('RGBA', piece_img.size, (0, 0, 0, 0))
-        shadow.paste((0, 0, 0, 90), (0, 0), piece_img)
-        img.paste(shadow, (x + 3, y + 5), shadow)
+        shadow.paste((0, 0, 0, 50), (0, 0), piece_img)
+        img.paste(shadow, (x + 2, y + 3), shadow)
         img.paste(piece_img, (x, y), piece_img)
 
     if panel:
