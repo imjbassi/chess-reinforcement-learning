@@ -89,11 +89,9 @@ Highly optimized move generation utilizing bitboard techniques, providing compre
 
 ### Prerequisites
 
-* C++ Compiler (e.g., GCC, MSVC)
-* Python 3.7+
-* PyTorch
-* PyGame
-* pybind11
+* C++17 compiler (GCC, Clang, or MSVC)
+* CMake 3.14+
+* Python 3.8+
 
 ### Installation
 
@@ -105,17 +103,31 @@ pip install -r requirements.txt
 
 ### Building the C++ Engine
 
-Compile the C++ chess engine with Python bindings:
+Compile the C++ chess engine with Python bindings (works on Linux, macOS, and Windows):
 
 ```bash
-# Example using CMake
-mkdir build
-cd build
-cmake ..
-make
+cmake -B build -DCMAKE_BUILD_TYPE=Release -Dpybind11_DIR=$(python -m pybind11 --cmakedir)
+cmake --build build --parallel
 ```
 
+The compiled `chessengine` module lands in `build/`. Add it to `PYTHONPATH` (or run
+from the `build/` directory) so the Python code can import it. If the C++ engine is
+not available, the training pipeline automatically falls back to the pure-Python
+chess implementation in `python/train/python_chess.py`.
+
 ### Usage
+
+Generate self-play games:
+
+```bash
+python python/train/selfplay.py
+```
+
+Train the neural network on the generated data:
+
+```bash
+python python/train/train.py
+```
 
 Run the PyGame visualization:
 
@@ -123,16 +135,15 @@ Run the PyGame visualization:
 python python/gui/pygame_gui.py
 ```
 
-Train the neural network:
+### Running the Tests
+
+Move generation for both engines is validated against standard
+[perft](https://www.chessprogramming.org/Perft_Results) node counts (including the
+Kiwipete stress position) and cross-checked against the `python-chess` library:
 
 ```bash
-python train.py
-```
-
-Generate self-play games:
-
-```bash
-python selfplay.py
+pip install pytest chess
+python -m pytest tests/ -v
 ```
 
 ---
