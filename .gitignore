@@ -48,3 +48,20 @@ selfplay_log.txt
 minimal_test.py
 test.py
 Untitled-1
+# Visual Studio / CMake build output
+x64/
+Debug/
+Release/
+*.vcxproj
+*.vcxproj.filters
+*.sln
+*.dir/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+*.pyd
+
+# Environment and training artifacts
+.env
+training_log.csv
+selfplay*.pt
