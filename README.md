@@ -135,6 +135,14 @@ Run the PyGame visualization:
 python python/gui/pygame_gui.py
 ```
 
+Render a self-play game as a video (glowing policy arrows, value-head
+evaluation gauge, and candidate-move probabilities for every position):
+
+```bash
+pip install pillow imageio-ffmpeg
+python python/viz/render_video.py --out selfplay.mp4 --model model_latest.pt
+```
+
 ### Running the Tests
 
 Move generation for both engines is validated against standard
