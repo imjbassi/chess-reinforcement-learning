@@ -1,9 +1,8 @@
-```python
 import torch
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
-import pandas as pd
+import csv
 import os
 import sys
 
@@ -117,8 +116,9 @@ def train(batch_size=32, epochs=500, lr=1e-3, resume=True, kl_coeff=1e-4, data_p
             "learning_rate": scheduler.get_last_lr()[0],
         })
 
-        # Save checkpoints
-        torch.save(net.state_dict(), f"model_epoch{epoch}.pt")
+        # Save checkpoints (periodic snapshots plus rolling latest/best)
+        if epoch % 25 == 0 or epoch == epochs:
+            torch.save(net.state_dict(), f"model_epoch{epoch}.pt")
         torch.save(net.state_dict(), "model_latest.pt")
         
         if total_loss < best_loss:
@@ -127,11 +127,13 @@ def train(batch_size=32, epochs=500, lr=1e-3, resume=True, kl_coeff=1e-4, data_p
             print(f"✓ New best model saved (loss: {best_loss:.4f})")
 
     # Save training log
-    df = pd.DataFrame(log)
-    df.to_csv("training_log.csv", index=False)
-    print(f"\n✓ Training complete. Log saved to training_log.csv")
+    if log:
+        with open("training_log.csv", "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=list(log[0].keys()))
+            writer.writeheader()
+            writer.writerows(log)
+    print("\n✓ Training complete. Log saved to training_log.csv")
 
 
 if __name__ == "__main__":
     train()
-```

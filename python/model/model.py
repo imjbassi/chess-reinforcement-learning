@@ -1,4 +1,3 @@
-```python
 import torch
 import torch.nn as nn
 import numpy as np
@@ -208,4 +207,3 @@ class ChessNet(nn.Module):
         value = self.value_head(features)
         
         return policy, value
-```

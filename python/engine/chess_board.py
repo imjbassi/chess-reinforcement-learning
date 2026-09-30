@@ -1,4 +1,3 @@
-```python
 import sys
 import os
 
@@ -134,4 +133,3 @@ class ChessBoard:
             str: A string showing the current FEN position.
         """
         return self.get_fen()
-```

@@ -1,4 +1,3 @@
-```python
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -9,7 +8,6 @@ import torch.nn.functional as F
 import numpy as np
 import traceback
 import random
-import threading
 
 # Import our Python chess implementation
 try:
@@ -30,54 +28,6 @@ except Exception as e:
     print("Using Python-only chess implementation.")
     CPP_ENGINE_AVAILABLE = False
     from model.model import ChessNet
-
-
-def get_moves_with_timeout(board, timeout=3):
-    """
-    Try to get legal moves with a timeout, fall back to Python if needed.
-    
-    Args:
-        board: Chess board instance (SimpleChessBoard or ChessBoard)
-        timeout: Maximum time in seconds to wait for move generation
-        
-    Returns:
-        List of legal moves in UCI format
-    """
-    if not CPP_ENGINE_AVAILABLE:
-        # If the C++ engine isn't available, use our Python implementation directly
-        if isinstance(board, SimpleChessBoard):
-            return board.get_legal_moves()
-        else:
-            print("Warning: C++ engine unavailable and board is not SimpleChessBoard")
-            return []
-    
-    # Otherwise, use the timeout approach with the C++ engine
-    result = [None]
-    exception = [None]
-    
-    def target():
-        try:
-            result[0] = board.get_legal_moves()
-        except Exception as e:
-            exception[0] = e
-    
-    thread = threading.Thread(target=target)
-    thread.daemon = True
-    thread.start()
-    
-    thread.join(timeout)
-    if thread.is_alive():
-        print("WARNING: get_legal_moves() timed out! Using Python fallback...")
-        py_board = SimpleChessBoard()
-        return py_board.get_legal_moves()
-    
-    if exception[0]:
-        print(f"Exception in get_legal_moves: {exception[0]}")
-        print("Using Python fallback...")
-        py_board = SimpleChessBoard()
-        return py_board.get_legal_moves()
-    
-    return result[0]
 
 
 def _uci_to_index(uci):
@@ -153,11 +103,18 @@ def _select_move_from_policy(logits, legal_moves, temperature=1.0):
     try:
         move_idx = torch.multinomial(probs, num_samples=1).item()
         uci = _index_to_uci(move_idx)
-        
-        # Verify move is legal
+
+        # Verify move is legal. Promotions share a from-to index with their
+        # 4-character form, so map back to the legal promotion move (queen
+        # first, since underpromotions are rarely best).
         if uci not in legal_moves:
-            raise ValueError(f"Selected move {uci} not in legal moves")
-            
+            for promo in ('q', 'n', 'r', 'b'):
+                if uci + promo in legal_moves:
+                    uci = uci + promo
+                    break
+            else:
+                raise ValueError(f"Selected move {uci} not in legal moves")
+
     except (ValueError, RuntimeError) as e:
         # Fallback to random move if sampling fails
         print(f"Error sampling from policy: {e}")
@@ -208,9 +165,7 @@ def selfplay(net, n_games=10, max_plies=200, temperature=1.0):
         print(f"=== Starting game {g+1}/{n_games} ===")
         
         try:
-            print("Creating board...")
             board = SimpleChessBoard()
-            print("Board created and reset successfully")
             
             states, pis = [], []
             z = 0.0  # Default game outcome (draw)
@@ -219,16 +174,12 @@ def selfplay(net, n_games=10, max_plies=200, temperature=1.0):
             # Play the game until completion or max moves
             while moves_played < max_plies:
                 moves_played += 1
-                print(f"Move {moves_played}")
                 
                 # Get legal moves
                 legal_moves = board.get_legal_moves()
                 
                 if not legal_moves:
-                    print("No legal moves - game over")
                     break
-                
-                print(f"Got {len(legal_moves)} legal moves")
                 
                 # Encode current board state
                 state = encode_simple_board(board)
@@ -241,8 +192,6 @@ def selfplay(net, n_games=10, max_plies=200, temperature=1.0):
                 # Select move using policy network
                 uci, probs = _select_move_from_policy(logits, legal_moves, temperature)
                 
-                print(f"Selected move: {uci} (value: {value.item():.2f})")
-                
                 # Store policy for training
                 pi = probs.cpu().detach().numpy().flatten()
                 
@@ -252,7 +201,6 @@ def selfplay(net, n_games=10, max_plies=200, temperature=1.0):
                 
                 # Apply move
                 board.apply_move(uci)
-                print(f"Applied move {uci}")
                 
                 # Check if game over
                 done, result = board.is_game_over()
@@ -326,4 +274,3 @@ if __name__ == "__main__":
     # Run self-play with temperature control
     # Higher temperature = more exploration
     selfplay(net, n_games=10, max_plies=200, temperature=1.2)
-```

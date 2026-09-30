@@ -1,7 +1,5 @@
-```python
 """Simple Python chess implementation for fallback when C++ engine fails"""
 import numpy as np
-import torch
 
 # Piece encodings
 EMPTY = 0
@@ -56,6 +54,7 @@ class SimpleChessBoard:
         self.moves_played = 0
         self.castling_rights = [True, True, True, True]
         self.en_passant_square = None
+        self.halfmove_clock = 0
         self.reset()
 
     def reset(self):
@@ -65,6 +64,7 @@ class SimpleChessBoard:
         self.moves_played = 0
         self.castling_rights = [True, True, True, True]  # WK, WQ, BK, BQ
         self.en_passant_square = None
+        self.halfmove_clock = 0
 
     def _is_attacked_on_board(self, board, sq, by_white):
         """Check if a square is attacked by the specified color on a given board state."""
@@ -280,4 +280,188 @@ class SimpleChessBoard:
             if piece_type == PAWN:
                 self._generate_pawn_moves(sq, rank, file, piece, is_white, pseudo_moves)
             elif piece_type == KNIGHT:
-                self._generate_knight_moves(sq, rank, file, is_white, pseudo_moves
+                self._generate_knight_moves(sq, rank, file, is_white, pseudo_moves)
+            elif piece_type == KING:
+                self._generate_king_moves(sq, rank, file, piece, is_white, pseudo_moves)
+            else:
+                self._generate_sliding_moves(sq, rank, file, piece_type, is_white, pseudo_moves)
+
+        # Filter out moves that leave the moving side's king in check
+        legal_moves = []
+        for uci in pseudo_moves:
+            test_board = self._board_after_move(self.board, uci)
+            king_val = KING if self.white_to_move else -KING
+            king_squares = np.argwhere(test_board == king_val)
+            if len(king_squares) == 0:
+                continue
+            king_sq = coords_to_sq(*king_squares[0])
+            if not self._is_attacked_on_board(test_board, king_sq, not self.white_to_move):
+                legal_moves.append(uci)
+
+        return legal_moves
+
+    def _board_after_move(self, board, uci):
+        """Return a copy of the given board with the UCI move applied (no side/state updates)."""
+        new_board = board.copy()
+        from_file, from_rank = ord(uci[0]) - ord('a'), int(uci[1]) - 1
+        to_file, to_rank = ord(uci[2]) - ord('a'), int(uci[3]) - 1
+        piece = new_board[from_rank, from_file]
+
+        # En passant: pawn moves diagonally onto an empty square
+        if abs(piece) == PAWN and from_file != to_file and new_board[to_rank, to_file] == 0:
+            new_board[from_rank, to_file] = 0
+
+        new_board[from_rank, from_file] = 0
+
+        # Promotion
+        if len(uci) == 5:
+            promo_type = {'q': QUEEN, 'r': ROOK, 'b': BISHOP, 'n': KNIGHT}[uci[4]]
+            piece = promo_type if piece > 0 else -promo_type
+
+        new_board[to_rank, to_file] = piece
+
+        # Castling: move the rook alongside the king
+        if abs(piece) == KING and abs(to_file - from_file) == 2:
+            rook_from_file = 7 if to_file > from_file else 0
+            rook_to_file = 5 if to_file > from_file else 3
+            new_board[to_rank, rook_to_file] = new_board[to_rank, rook_from_file]
+            new_board[to_rank, rook_from_file] = 0
+
+        return new_board
+
+    def apply_move(self, uci):
+        """Apply a UCI move to the board, updating all game state."""
+        from_file, from_rank = ord(uci[0]) - ord('a'), int(uci[1]) - 1
+        to_file, to_rank = ord(uci[2]) - ord('a'), int(uci[3]) - 1
+        piece = self.board[from_rank, from_file]
+        is_pawn = abs(piece) == PAWN
+        is_capture = self.board[to_rank, to_file] != 0 or \
+            (is_pawn and from_file != to_file and self.board[to_rank, to_file] == 0)
+
+        self.board = self._board_after_move(self.board, uci)
+
+        # Update castling rights when king or rooks move (or rooks are captured)
+        for idx, corner in enumerate([(0, 7), (0, 0), (7, 7), (7, 0)]):
+            if (from_rank, from_file) == corner or (to_rank, to_file) == corner:
+                self.castling_rights[idx] = False
+        if piece == KING:
+            self.castling_rights[0] = self.castling_rights[1] = False
+        elif piece == -KING:
+            self.castling_rights[2] = self.castling_rights[3] = False
+
+        # Update en passant target square after a double pawn push
+        if is_pawn and abs(to_rank - from_rank) == 2:
+            self.en_passant_square = ((from_rank + to_rank) // 2, from_file)
+        else:
+            self.en_passant_square = None
+
+        # Update halfmove clock for the fifty-move rule
+        if is_pawn or is_capture:
+            self.halfmove_clock = 0
+        else:
+            self.halfmove_clock = self.halfmove_clock + 1
+
+        self.white_to_move = not self.white_to_move
+        self.moves_played += 1
+
+    def is_game_over(self):
+        """
+        Check whether the game has ended.
+
+        Returns:
+            Tuple of (done, result) where result is "1-0", "0-1" or "1/2-1/2".
+        """
+        # Fifty-move rule (100 plies without a pawn move or capture)
+        if self.halfmove_clock >= 100:
+            return True, "1/2-1/2"
+
+        # Insufficient material: bare kings
+        if np.all((self.board == 0) | (np.abs(self.board) == KING)):
+            return True, "1/2-1/2"
+
+        if self.get_legal_moves():
+            return False, None
+
+        # No legal moves: checkmate or stalemate
+        king_val = KING if self.white_to_move else -KING
+        king_squares = np.argwhere(self.board == king_val)
+        if len(king_squares) > 0:
+            king_sq = coords_to_sq(*king_squares[0])
+            if self._is_attacked_on_board(self.board, king_sq, not self.white_to_move):
+                return True, "0-1" if self.white_to_move else "1-0"
+        return True, "1/2-1/2"
+
+    def get_fen(self):
+        """Export the current position as a FEN string."""
+        piece_chars = {PAWN: 'P', KNIGHT: 'N', BISHOP: 'B', ROOK: 'R', QUEEN: 'Q', KING: 'K'}
+        rows = []
+        for rank in range(7, -1, -1):
+            row = ""
+            empty = 0
+            for file in range(8):
+                piece = self.board[rank, file]
+                if piece == 0:
+                    empty += 1
+                    continue
+                if empty:
+                    row += str(empty)
+                    empty = 0
+                c = piece_chars[abs(piece)]
+                row += c if piece > 0 else c.lower()
+            if empty:
+                row += str(empty)
+            rows.append(row)
+
+        stm = 'w' if self.white_to_move else 'b'
+        cast = "".join(c for c, right in zip("KQkq", self.castling_rights) if right) or "-"
+        if self.en_passant_square is not None:
+            ep_rank, ep_file = self.en_passant_square
+            ep = f"{chr(ep_file + ord('a'))}{ep_rank + 1}"
+        else:
+            ep = "-"
+        halfmove = self.halfmove_clock
+        fullmove = self.moves_played // 2 + 1
+        return f"{'/'.join(rows)} {stm} {cast} {ep} {halfmove} {fullmove}"
+
+
+# Plane index for each piece type, matching the C++ engine's bitboard order:
+# WP, WN, WB, WR, WQ, WK, BP, BN, BB, BR, BQ, BK
+_PLANE_OF_TYPE = {PAWN: 0, KNIGHT: 1, BISHOP: 2, ROOK: 3, QUEEN: 4, KING: 5}
+
+
+def encode_simple_board(board):
+    """
+    Encode a SimpleChessBoard into the 18-plane tensor the network expects.
+
+    Plane layout matches model.encode_board:
+    - Planes 0-11: piece positions (WP, WN, WB, WR, WQ, WK, BP, BN, BB, BR, BQ, BK)
+    - Plane 12: side to move (all ones when white to move)
+    - Planes 13-16: castling rights (WK, WQ, BK, BQ)
+    - Plane 17: en passant target square
+
+    Returns:
+        torch.Tensor of shape (1, 18, 8, 8)
+    """
+    import torch
+
+    planes = np.zeros((18, 8, 8), dtype=np.float32)
+
+    for rank in range(8):
+        for file in range(8):
+            piece = board.board[rank, file]
+            if piece == 0:
+                continue
+            plane = _PLANE_OF_TYPE[abs(piece)] + (0 if piece > 0 else 6)
+            planes[plane, rank, file] = 1.0
+
+    planes[12, :, :] = 1.0 if board.white_to_move else 0.0
+
+    for i, right in enumerate(board.castling_rights):
+        if right:
+            planes[13 + i, :, :] = 1.0
+
+    if board.en_passant_square is not None:
+        ep_rank, ep_file = board.en_passant_square
+        planes[17, ep_rank, ep_file] = 1.0
+
+    return torch.from_numpy(planes).unsqueeze(0)
