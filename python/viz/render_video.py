@@ -330,7 +330,7 @@ def draw_eval_gauge(img, draw, shown_value):
 
 def render_frame(bg, pieces, board_arr, *, last_move=None, moving=None,
                  fade_sq=None, fade_alpha=255, arrows=None, check_sq=None,
-                 panel=None, header_alpha=255):
+                 panel=None):
     img = bg.copy()
     draw = ImageDraw.Draw(img, 'RGBA')
 
@@ -399,29 +399,6 @@ def render_frame(bg, pieces, board_arr, *, last_move=None, moving=None,
         draw_panel(draw, panel['ply'], panel['index'], panel['total'],
                    panel['history'], panel['shown_value'])
 
-    if header_alpha < 255:
-        veil = Image.new('RGBA', img.size, (BG_TOP[0], BG_TOP[1], BG_TOP[2],
-                                            255 - header_alpha))
-        img.paste(veil, (0, 0), veil)
-    return img
-
-
-def title_card(bg, subtitle, alpha):
-    img = bg.copy()
-    draw = ImageDraw.Draw(img, 'RGBA')
-    big = font(64, bold=True)
-    small = font(22)
-    tw = draw.textlength("CHESS-RL", font=big)
-    draw.text(((W - tw) / 2, H / 2 - 90), "CHESS-RL", font=big,
-              fill=TEXT + (alpha,) if False else TEXT)
-    sw = draw.textlength(subtitle, font=small)
-    draw.text(((W - sw) / 2, H / 2), subtitle, font=small, fill=TEXT_DIM)
-    line_w = int(tw * 0.9)
-    draw.rounded_rectangle([(W - line_w) / 2, H / 2 - 108,
-                            (W + line_w) / 2, H / 2 - 104], radius=2, fill=ACCENT)
-    if alpha < 255:
-        veil = Image.new('RGBA', img.size, BG_TOP + (255 - alpha,))
-        img.paste(veil, (0, 0), veil)
     return img
 
 
@@ -470,12 +447,6 @@ def main():
         data = img.convert('RGB').tobytes()
         for _ in range(times):
             proc.stdin.write(data)
-
-    # Intro
-    for i in range(30):
-        emit(title_card(bg, "a neural network learning chess through self-play",
-                        int(255 * ease(min(1.0, i / 18)))))
-    emit(title_card(bg, "a neural network learning chess through self-play", 255), 20)
 
     history = []
     shown_value = 0.0
@@ -526,14 +497,6 @@ def main():
                  'history': history, 'shown_value': shown_value}
         emit(render_frame(bg, pieces, next_board, last_move=[fr_sq, to_sq],
                           check_sq=check2, panel=panel), HOLD)
-
-    # Outro
-    outcome = {"1-0": "White wins", "0-1": "Black wins",
-               "1/2-1/2": "Draw"}.get(result, f"Game paused after {len(plies)} plies")
-    for i in range(30):
-        emit(title_card(bg, f"{outcome} · every move chosen by the policy network",
-                        int(255 * ease(min(1.0, i / 18)))))
-    emit(title_card(bg, f"{outcome} · every move chosen by the policy network", 255), 36)
 
     proc.stdin.close()
     proc.wait()
