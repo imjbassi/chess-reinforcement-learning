@@ -1,4 +1,3 @@
-```cpp
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include "board.h"
@@ -40,4 +39,3 @@ PYBIND11_MODULE(chessengine, m) {
         .def("export_fen", &Board::export_fen,
              "Export the current position as FEN notation");
 }
-```

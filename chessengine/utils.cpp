@@ -1,4 +1,3 @@
-```cpp
 #include "utils.h"
 #include <algorithm>
 #include <cctype>
@@ -55,4 +54,3 @@ bool endsWith(const std::string& str, const std::string& suffix) {
 }
 
 } // namespace ChessEngine
-```

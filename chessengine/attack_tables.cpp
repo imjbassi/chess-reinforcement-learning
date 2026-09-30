@@ -1,4 +1,3 @@
-```cpp
 #include <cstdint>
 #include "attack_tables.h"
 
@@ -105,4 +104,3 @@ uint64_t pawn_attacks(int square, bool white) {
         return left_attack | right_attack;
     }
 }
-```

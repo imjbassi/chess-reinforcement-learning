@@ -1,20 +1,13 @@
-```cpp
 #include "board.h"
 #include "movegen.h"
 #include "attack_tables.h"
+#include "bitops.h"
 #include <algorithm>
-#include <intrin.h>
 #include <cassert>
+#include <cmath>
 #include <sstream>
+#include <stdexcept>
 #include <cctype>
-
-// Extract the least significant bit index and clear it from the bitboard
-static inline int pop_lsb(U64 &bb) {
-    unsigned long idx;
-    _BitScanForward64(&idx, bb);
-    bb &= bb - 1;
-    return static_cast<int>(idx);
-}
 
 // Convert UCI square notation (e.g., "e2") to square index (0-63)
 static inline int uci_sq(const std::string &u, int i) {
@@ -183,8 +176,9 @@ void Board::apply_move_without_validation(const std::string &uci) {
         }
     }
 
-    // Handle castling rook movement
-    if (!pawn) {
+    // Handle castling rook movement (only when the king itself makes the move)
+    bool king_moved = ((pieces_[white_to_move_ ? WK : BK] & tb) != 0);
+    if (king_moved) {
         if (white_to_move_ && from == 4) {
             if (to == 6) {  // White kingside castling
                 pieces_[WR] &= ~(1ULL << 7);
@@ -263,16 +257,63 @@ void Board::set_white_to_move(bool w) {
 }
 
 std::string Board::export_fen() const {
-    return "FEN export not implemented";
+    static const char piece_chars[PIECE_NB] = {
+        'P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k'
+    };
+
+    std::ostringstream out;
+
+    // Piece placement, rank 8 down to rank 1
+    for (int rank = 7; rank >= 0; --rank) {
+        int empty = 0;
+        for (int file = 0; file < 8; ++file) {
+            int sq = rank * 8 + file;
+            char c = 0;
+            for (int p = 0; p < PIECE_NB; ++p) {
+                if ((pieces_[p] >> sq) & 1) {
+                    c = piece_chars[p];
+                    break;
+                }
+            }
+            if (c) {
+                if (empty) { out << empty; empty = 0; }
+                out << c;
+            } else {
+                ++empty;
+            }
+        }
+        if (empty) out << empty;
+        if (rank > 0) out << '/';
+    }
+
+    // Side to move
+    out << ' ' << (white_to_move_ ? 'w' : 'b') << ' ';
+
+    // Castling rights
+    std::string cast;
+    if (castling_rights_ & 1) cast += 'K';
+    if (castling_rights_ & 2) cast += 'Q';
+    if (castling_rights_ & 4) cast += 'k';
+    if (castling_rights_ & 8) cast += 'q';
+    out << (cast.empty() ? "-" : cast) << ' ';
+
+    // En passant target square
+    if (ep_square_ >= 0) {
+        out << static_cast<char>('a' + (ep_square_ & 7))
+            << static_cast<char>('1' + (ep_square_ >> 3));
+    } else {
+        out << '-';
+    }
+
+    out << ' ' << halfmove_clock_ << ' ' << fullmove_number_;
+    return out.str();
 }
 
 bool Board::in_check(bool white) const {
     U64 king_bb = pieces_[white ? WK : BK];
     if (!king_bb) return false;
 
-    unsigned long idx;
-    _BitScanForward64(&idx, king_bb);
-    int king_sq = static_cast<int>(idx);
+    int king_sq = lsb_index(king_bb);
 
     U64 occ = occupied();
     
@@ -316,4 +357,3 @@ void Board::make_move(const std::string &uci) {
     
     apply_move_without_validation(uci);
 }
-```

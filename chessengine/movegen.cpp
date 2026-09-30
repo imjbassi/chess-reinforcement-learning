@@ -1,18 +1,18 @@
 // chessengine/movegen.cpp
 #include "movegen.h"
 #include "board.h"
-#include <intrin.h>
+#include "bitops.h"
 #include <vector>
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 
 // Pop the least-significant 1-bit from bb and return its index 0..63
 static inline int pop_lsb(uint64_t &bb) {
-    unsigned long idx;
-    _BitScanForward64(&idx, bb);
+    int idx = lsb_index(bb);
     bb &= bb - 1;
-    return static_cast<int>(idx);
+    return idx;
 }
 
 // Convert square index (0..63) to UCI string like "e2"
@@ -72,22 +72,20 @@ static bool is_square_attacked(int sq, bool by_white, const uint64_t *pieces, ui
     // Rook-like moves (horizontal/vertical)
     for (int d : ROOK_DIRS) {
         int t = sq + d;
-        int t_file = t & 7;
         int t_rank = t >> 3;
-        
+
         while (t >= 0 && t < 64) {
             // Check for board wrap
             if (d == +1 || d == -1) {
                 if (t_rank != sq_rank) break;
             }
-            
+
             uint64_t bit = 1ULL << t;
             if (bit & occ) {
                 if (bit & (pieces[by_white ? WR : BR] | pieces[by_white ? WQ : BQ])) return true;
                 break;
             }
             t += d;
-            t_file = t & 7;
             t_rank = t >> 3;
         }
     }
@@ -116,9 +114,7 @@ static bool is_square_attacked(int sq, bool by_white, const uint64_t *pieces, ui
     // King proximity
     uint64_t opp_king = pieces[by_white ? WK : BK];
     if (opp_king) {
-        unsigned long idx;
-        _BitScanForward64(&idx, opp_king);
-        int king_sq = static_cast<int>(idx);
+        int king_sq = lsb_index(opp_king);
         int dx = abs((king_sq & 7) - sq_file);
         int dy = abs((king_sq >> 3) - sq_rank);
         if (dx <= 1 && dy <= 1) return true;
@@ -191,12 +187,14 @@ std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
         uint64_t pawns = P[W ? WP : BP];
         
         // Compute capture bitboards
+        // "left" shifts toward the a-side (<<7 / >>9) and wrap onto the h-file,
+        // "right" shifts toward the h-side (<<9 / >>7) and wrap onto the a-file.
         uint64_t cap_left = W
-            ? ((pawns << 7) & ~0x0101010101010101ULL)
-            : ((pawns >> 9) & ~0x0101010101010101ULL);
+            ? ((pawns << 7) & ~0x8080808080808080ULL)
+            : ((pawns >> 9) & ~0x8080808080808080ULL);
         uint64_t cap_right = W
-            ? ((pawns << 9) & ~0x8080808080808080ULL)
-            : ((pawns >> 7) & ~0x8080808080808080ULL);
+            ? ((pawns << 9) & ~0x0101010101010101ULL)
+            : ((pawns >> 7) & ~0x0101010101010101ULL);
         uint64_t caps_left = cap_left & opp;
         uint64_t caps_right = cap_right & opp;
 
@@ -275,9 +273,11 @@ std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
                     // Check for board wrap
                     if (d == +1 || d == -1) {
                         if (t_rank != sq_rank) break;
-                    } else if (d == +9 || d == -7) {
+                    } else if (d == +9 || d == -9) {
+                        // NE/SW diagonal: file delta equals rank delta
                         if (t_file - sq_file != t_rank - sq_rank) break;
-                    } else if (d == +7 || d == -9) {
+                    } else if (d == +7 || d == -7) {
+                        // NW/SE diagonal: file delta is the negated rank delta
                         if (t_file - sq_file != sq_rank - t_rank) break;
                     }
                     
@@ -326,8 +326,49 @@ std::vector<std::string> generate_pseudo_legal_moves(const Board &b) {
             }
         }
         
-        // Castling
+        // Castling: rights present, rook in place, path empty, and the king
+        // does not pass through or land on an attacked square while in check.
         int rights = b.castling_rights();
         if (W) {
             // White kingside (e1-g1)
-            if ((rights & 1) && king_sq == 4)
+            if ((rights & 1) && king_sq == 4 &&
+                (P[WR] & (1ULL << 7)) &&
+                !((occ >> 5) & 1) && !((occ >> 6) & 1) &&
+                !is_square_attacked(4, false, P, occ) &&
+                !is_square_attacked(5, false, P, occ) &&
+                !is_square_attacked(6, false, P, occ)) {
+                push_move(moves, 4, 6);
+            }
+            // White queenside (e1-c1)
+            if ((rights & 2) && king_sq == 4 &&
+                (P[WR] & (1ULL << 0)) &&
+                !((occ >> 1) & 1) && !((occ >> 2) & 1) && !((occ >> 3) & 1) &&
+                !is_square_attacked(4, false, P, occ) &&
+                !is_square_attacked(3, false, P, occ) &&
+                !is_square_attacked(2, false, P, occ)) {
+                push_move(moves, 4, 2);
+            }
+        } else {
+            // Black kingside (e8-g8)
+            if ((rights & 4) && king_sq == 60 &&
+                (P[BR] & (1ULL << 63)) &&
+                !((occ >> 61) & 1) && !((occ >> 62) & 1) &&
+                !is_square_attacked(60, true, P, occ) &&
+                !is_square_attacked(61, true, P, occ) &&
+                !is_square_attacked(62, true, P, occ)) {
+                push_move(moves, 60, 62);
+            }
+            // Black queenside (e8-c8)
+            if ((rights & 8) && king_sq == 60 &&
+                (P[BR] & (1ULL << 56)) &&
+                !((occ >> 57) & 1) && !((occ >> 58) & 1) && !((occ >> 59) & 1) &&
+                !is_square_attacked(60, true, P, occ) &&
+                !is_square_attacked(59, true, P, occ) &&
+                !is_square_attacked(58, true, P, occ)) {
+                push_move(moves, 60, 58);
+            }
+        }
+    }
+
+    return moves;
+}
